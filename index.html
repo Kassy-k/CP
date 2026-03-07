@@ -27,18 +27,18 @@
     .header .icon { font-size: 48px; margin-bottom: 8px; }
     .header h1 { font-size: 22px; font-weight: 800; color: #1a1a2e; letter-spacing: -0.5px; }
     .header p { margin-top: 8px; color: #666; font-size: 14px; }
-    .search-row { display: flex; gap: 10px; margin-bottom: 24px; }
+    .search-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
     .search-row input {
-      flex: 1; padding: 14px 18px; font-size: 18px;
+      width: 100%; padding: 14px 18px; font-size: 18px;
       border: 2px solid #e0e0e0; border-radius: 10px; outline: none;
       letter-spacing: 2px; font-weight: 600; color: #1a1a2e; transition: border-color 0.2s;
     }
     .search-row input:focus { border-color: #0f3460; }
     .search-row button {
-      padding: 14px 22px;
+      width: 100%; padding: 14px 22px;
       background: linear-gradient(135deg, #0f3460, #1a6fb5);
       color: white; border: none; border-radius: 10px;
-      font-size: 16px; font-weight: 700; cursor: pointer; white-space: nowrap;
+      font-size: 16px; font-weight: 700; cursor: pointer;
     }
     .result { padding: 20px; border-radius: 12px; border: 2px solid; display: none; }
     .result.visible { display: flex; align-items: flex-start; gap: 12px; }
@@ -64,7 +64,7 @@
       <p>Consulta la promoción por código postal</p>
     </div>
     <div class="search-row">
-      <input type="text" id="cpInput" placeholder="Ej. 45234" maxlength="10" />
+      <input type="text" id="cpInput" placeholder="Coloca aqui tu CP:" maxlength="10" />
       <button onclick="handleSearch()">Consultar</button>
     </div>
     <div id="resultBox" class="result">
