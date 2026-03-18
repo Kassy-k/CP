@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Actualizar Cobertura</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; font-family: Arial, sans-serif;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 40px;
+      max-width: 560px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header .icon { font-size: 48px; margin-bottom: 8px; }
+    .header h1 { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+    .header p { margin-top: 8px; color: #666; font-size: 14px; }
+    .drop-zone {
+      border: 2px dashed #c0c0c0; border-radius: 12px;
+      padding: 40px 20px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #0f3460; background: #f0f4ff;
+    }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone .dz-icon { font-size: 36px; margin-bottom: 8px; }
+    .drop-zone p { color: #555; font-size: 14px; }
+    .drop-zone strong { color: #0f3460; }
+    button {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #0f3460, #1a6fb5);
+      color: white; border: none; border-radius: 10px;
+      font-size: 16px; font-weight: 700; cursor: pointer; margin-bottom: 12px;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger {
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+    }
+    .status {
+      padding: 16px; border-radius: 10px; font-size: 14px;
+      font-weight: 600; display: none; margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .status.visible { display: block; }
+    .status.ok { background: #f0fdf4; border: 2px solid #86efac; color: #166534; }
+    .status.err { background: #fef2f2; border: 2px solid #fca5a5; color: #991b1b; }
+    .status.info { background: #eff6ff; border: 2px solid #93c5fd; color: #1e40af; }
+    .col-map { font-size: 12px; color: #888; margin-bottom: 20px; background: #f9f9f9; border-radius: 8px; padding: 12px; }
+    .col-map strong { color: #333; }
+    .footer { text-align: center; font-size: 12px; color: #aaa; margin-top: 16px; }
+    .footer a { color: #0f3460; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="icon">⚙️</div>
+      <h1>Actualizar Base de Datos</h1>
+      <p>Carga un Excel para actualizar los códigos postales</p>
+    </div>
+
+    <div class="col-map">
+      <strong>Columnas esperadas en el Excel:</strong><br>
+      A = CodigoPostal &nbsp;·&nbsp; C = Aplica (SI/NO) &nbsp;·&nbsp; D = Observaciones<br>
+      E = Kassel &nbsp;·&nbsp; F = Flete &nbsp;·&nbsp; G = Notas (opcional, ej. "RUTA SOLO DÍAS MARTES")
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" />
+      <div class="dz-icon">📂</div>
+      <p><strong>Selecciona o arrastra</strong> el archivo Excel aquí</p>
+      <p style="margin-top:6px; font-size:12px; color:#aaa;">Formatos: .xlsx / .xls</p>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <button id="btnCargar" disabled>Cargar y Actualizar</button>
+    <button class="btn-danger" onclick="clearData()">Borrar datos cargados (volver a hardcoded)</button>
+
+    <p class="footer">
+      Los datos se guardan en el navegador (localStorage).<br>
+      Se pierden al limpiar el almacenamiento del navegador.<br>
+      <a href="index.html">← Volver a la consulta</a>
+    </p>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script>
+    let workbook = null;
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const btnCargar = document.getElementById('btnCargar');
+    const statusEl = document.getElementById('status');
+
+    function showStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status visible ' + type;
+    }
+
+    // Drag & drop
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+      showStatus('Leyendo archivo...', 'info');
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          workbook = XLSX.read(e.target.result, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          // Count data rows (skip header)
+          const dataRows = rows.slice(1).filter(r => r[0] !== '');
+          showStatus(`Archivo cargado: "${file.name}"\n${dataRows.length.toLocaleString()} códigos postales encontrados.\nPresiona "Cargar y Actualizar" para aplicar.`, 'info');
+          btnCargar.disabled = false;
+        } catch(err) {
+          showStatus('Error al leer el archivo: ' + err.message, 'err');
+          btnCargar.disabled = true;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    btnCargar.addEventListener('click', () => {
+      if (!workbook) return;
+      try {
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        const data = {};
+        let count = 0;
+        let skipped = 0;
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const cp = String(row[0]).trim();
+          if (!cp) continue;
+
+          // Cols: A=0, C=2, D=3, E=4, F=5, G=6
+          const aplica = String(row[2] || '').trim();
+          const obs    = String(row[3] || '').trim();
+          const kassel = String(row[4] || '').trim();
+          const flete  = String(row[5] || '').trim();
+          const notas  = String(row[6] || '').trim();
+
+          if (!aplica) { skipped++; continue; }
+
+          data[cp] = [aplica, obs, kassel, flete, notas].join('|');
+          count++;
+        }
+
+        localStorage.setItem('CP_DATA_OVERRIDE', JSON.stringify(data));
+        showStatus(`✅ Base de datos actualizada con ${count.toLocaleString()} registros.\n${skipped > 0 ? skipped + ' filas omitidas (sin valor en Aplica).' : ''}`, 'ok');
+        btnCargar.disabled = true;
+        workbook = null;
+      } catch(err) {
+        showStatus('Error al procesar: ' + err.message, 'err');
+      }
+    });
+
+    function clearData() {
+      localStorage.removeItem('CP_DATA_OVERRIDE');
+      showStatus('Datos eliminados. La consulta usará los datos hardcodeados.', 'info');
+    }
+
+    // Show current state on load
+    window.addEventListener('load', () => {
+      try {
+        const override = localStorage.getItem('CP_DATA_OVERRIDE');
+        if (override) {
+          const parsed = JSON.parse(override);
+          const count = Object.keys(parsed).length;
+          showStatus(`Datos activos en localStorage: ${count.toLocaleString()} registros cargados.`, 'ok');
+        }
+      } catch(e) {}
+    });
+  </script>
+</body>
+</html>
