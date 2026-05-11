@@ -15,6 +15,15 @@
       padding: 24px;
       font-family: Arial, sans-serif;
     }
+    .wrapper {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      width: 100%;
+      max-width: 1100px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     .card {
       background: white;
       border-radius: 16px;
@@ -22,7 +31,37 @@
       max-width: 560px;
       width: 100%;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      flex: 1 1 400px;
     }
+    .sac-card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      flex: 1 1 340px;
+      max-width: 440px;
+      width: 100%;
+    }
+    .sac-card h2 {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 800;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      letter-spacing: -0.3px;
+    }
+    .sac-card h2 span { color: #0f3460; }
+    .sac-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sac-table thead tr { background: #1a1a2e; color: white; }
+    .sac-table thead th { padding: 10px 12px; text-align: center; font-weight: 700; font-size: 12px; }
+    .sac-table thead th:first-child { text-align: left; border-radius: 8px 0 0 0; }
+    .sac-table thead th:last-child { border-radius: 0 8px 0 0; }
+    .sac-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .sac-table tbody tr:nth-child(even) { background: #f8faff; }
+    .sac-table tbody td { padding: 10px 12px; color: #333; }
+    .sac-table tbody td:first-child { font-weight: 600; color: #444; }
+    .sac-table tbody td:not(:first-child) { text-align: center; font-weight: 700; color: #0f3460; font-size: 14px; }
+    .sac-note { text-align: center; font-size: 11px; color: #999; margin-top: 12px; }
     .header { text-align: center; margin-bottom: 32px; }
     .header .icon { font-size: 48px; margin-bottom: 8px; }
     .header h1 { font-size: 22px; font-weight: 800; color: #1a1a2e; letter-spacing: -0.5px; }
@@ -57,6 +96,7 @@
   </style>
 </head>
 <body>
+  <div class="wrapper">
   <div class="card">
     <div class="header">
       <div class="icon">🏭</div>
@@ -76,6 +116,50 @@
     </div>
     <p class="footer" id="footer"></p>
   </div>
+
+  <!-- Tabla SAC -->
+  <div class="sac-card">
+    <h2>💰 Costos de <span>Seguro SAC</span></h2>
+    <table class="sac-table">
+      <thead>
+        <tr>
+          <th>Monto del pedido</th>
+          <th>SAC Local</th>
+          <th>SAC Foráneo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hasta $10,000</td>
+          <td>$399</td>
+          <td>$499</td>
+        </tr>
+        <tr>
+          <td>De $10,001 a $20,000</td>
+          <td>$499</td>
+          <td>$599</td>
+        </tr>
+        <tr>
+          <td>De $20,001 a $60,000</td>
+          <td>$599</td>
+          <td>$699</td>
+        </tr>
+        <tr>
+          <td>De $60,001 a $80,000</td>
+          <td>$699</td>
+          <td>$799</td>
+        </tr>
+        <tr>
+          <td>Mayor a $80,000</td>
+          <td>$799</td>
+          <td>$899</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="sac-note">Precios en MXN • Seguro sobre el valor del pedido</p>
+  </div>
+
+  </div><!-- /wrapper -->
   <script>
 const CP_DATA = {
   '1000': 'SI|SERVICIO LOCAL CON COTIZACION PREVIA|SI|SAC|',
