@@ -104,7 +104,8 @@
       <p>Consulta la promoción por código postal</p>
     </div>
     <div class="search-row">
-      <input type="text" id="cpInput" placeholder="Coloca aqui tu CP:" maxlength="10" />
+      <input type="text" id="cpInput" placeholder="Coloca aquí tu CP:" maxlength="10" />
+      <input type="text" id="montoInput" placeholder="Monto del pedido (ej. $10,000):" />
       <button onclick="handleSearch()">Consultar</button>
     </div>
     <div id="resultBox" class="result">
@@ -31652,21 +31653,79 @@ const CP_DATA = {
   '99998': 'SI|CON COTIZACION PREVIA|||'
 };
 
-    function getResponse(cp) {
+    // SAC pricing table
+    const SAC_PRICING = [
+      { max: 10000,  local: 399,  foraneo: 499 },
+      { max: 20000,  local: 499,  foraneo: 599 },
+      { max: 60000,  local: 599,  foraneo: 699 },
+      { max: 80000,  local: 699,  foraneo: 799 },
+      { max: Infinity, local: 799, foraneo: 899 }
+    ];
+
+    function getSACUnitPrice(monto, isForaneo) {
+      for (const tier of SAC_PRICING) {
+        if (monto <= tier.max) return isForaneo ? tier.foraneo : tier.local;
+      }
+      return isForaneo ? 899 : 799;
+    }
+
+    function parseSAC(sacText) {
+      if (!sacText) return null;
+      const t = sacText.toUpperCase().trim();
+      // Determine type
+      const isForaneo = t.includes('FOR') || t.includes('FORANEO') || t.includes('FORÁNEO');
+      // Determine multiplier
+      let multiplier = 1;
+      const numMatch = t.match(/^(\d+)\s*SAC/);
+      if (numMatch) multiplier = parseInt(numMatch[1]);
+      else if (t.includes('DOBLE') || t.includes('2 SAC') || t.includes('SAC DOBLE')) multiplier = 2;
+      else if (t.includes('TRIPLE') || t.includes('3 SAC')) multiplier = 3;
+      else if (t.includes('4 SAC')) multiplier = 4;
+      return { isForaneo, multiplier };
+    }
+
+    function formatMXN(n) {
+      return '$' + n.toLocaleString('es-MX');
+    }
+
+    function getResponse(cp, monto) {
       const val = CP_DATA[cp];
       if (!val) return { type: 'notfound', text: 'No se encontró información para este código postal.' };
       const [c, d, e, f, g] = val.split('|');
+
       if (c === 'NO') {
         const hasExtra = (e && e.trim()) || (f && f.trim()) || (g && g.trim());
         if (hasExtra) return { type: 'special', text: [e, f, g].filter(x => x && x.trim()).join(' | ') };
         return { type: 'zonaroja', text: 'Este código postal no aplica en promoción FOR por posible zona roja y/o caminos no aptos para la circulación. Lo que se puede ofertar al cliente es la entrega en algún código postal que sí tenga cobertura y de ahí pueda trasladarlo.' };
       }
-      let result = (d && d.trim())
-        ? 'APLICA PROMOCIÓN FOR CON COTIZACIÓN PREVIA (favor de enviar la cotización al grupo de embarques para enviarla a la fletera).'
-        : 'APLICA PROMOCIÓN FOR.';
-      if (e && e.trim()) result = result.replace(/\.$/, '') + ' Y/O APLICARÍA ENTREGA DIRECTA EN KASSEL.';
-      if (f && f.trim()) result = result.replace(/\.$/, '') + ' CON EL COSTO DE ' + f.trim() + '.';
-      if (g && g.trim()) result = result.replace(/\.$/, '') + ' ' + g.trim() + '.';
+
+      // c === SI
+      const hasKassel = e && e.trim();
+      const hasFletera = d && d.trim();
+      const sacInfo = f && f.trim() ? parseSAC(f) : null;
+
+      let result = '';
+
+      // If has Kassel option → show ONLY Kassel (skip fletera)
+      if (hasKassel) {
+        result = 'APLICARÍA ENTREGA DIRECTA EN KASSEL.';
+        if (sacInfo && monto > 0) {
+          const unitPrice = getSACUnitPrice(monto, sacInfo.isForaneo);
+          const total = unitPrice * sacInfo.multiplier;
+          const tipo = sacInfo.isForaneo ? 'Foráneo' : 'Local';
+          result = result.replace(/\.$/, '') +
+            ` CON EL COSTO DE ${sacInfo.multiplier > 1 ? sacInfo.multiplier + ' SAC' : '1 SAC'} ${tipo.toUpperCase()}: ${formatMXN(total)} MXN` +
+            (sacInfo.multiplier > 1 ? ` (${formatMXN(unitPrice)} c/u × ${sacInfo.multiplier})` : '') + '.';
+        } else if (f && f.trim()) {
+          result = result.replace(/\.$/, '') + ' CON EL COSTO DE ' + f.trim() + '.';
+        }
+        if (g && g.trim()) result = result.replace(/\.$/, '') + ' ' + g.trim() + '.';
+      } else if (hasFletera) {
+        result = 'APLICA PROMOCIÓN FOR CON COTIZACIÓN PREVIA (favor de enviar la cotización al grupo de embarques para enviarla a la fletera).';
+      } else {
+        result = 'APLICA PROMOCIÓN FOR.';
+      }
+
       return { type: 'success', text: result };
     }
 
@@ -31676,7 +31735,9 @@ const CP_DATA = {
     function handleSearch() {
       const cp = document.getElementById('cpInput').value.trim();
       if (!cp) return;
-      const res = getResponse(cp);
+      const montoRaw = document.getElementById('montoInput').value.trim().replace(/[,$\s]/g, '');
+      const monto = parseFloat(montoRaw) || 0;
+      const res = getResponse(cp, monto);
       const box = document.getElementById('resultBox');
       box.className = 'result visible type-' + res.type;
       document.getElementById('resultIcon').textContent = icons[res.type];
@@ -31685,6 +31746,15 @@ const CP_DATA = {
     }
 
     document.getElementById('cpInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
+    document.getElementById('montoInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
+    document.getElementById('montoInput').addEventListener('input', function() {
+      const raw = this.value.replace(/[^0-9]/g, '');
+      if (raw) {
+        this.value = '$' + parseInt(raw, 10).toLocaleString('es-MX');
+      } else {
+        this.value = '';
+      }
+    });
     document.getElementById('footer').textContent = 'Base de datos con ' + Object.keys(CP_DATA).length.toLocaleString() + ' códigos postales';
   </script>
 </body>
